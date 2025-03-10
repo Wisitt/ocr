@@ -4,34 +4,38 @@ import uuid
 import easyocr
 
 app = Flask(__name__)
-reader = easyocr.Reader(['thai', 'eng'], gpu=False)
 
-# โฟลเดอร์ชั่วคราวสำหรับเก็บไฟล์ที่อัปโหลด
+# สร้าง EasyOCR Reader (ใช้ CPU เท่านั้น)
+reader = easyocr.Reader(['th', 'en'], gpu=False)
+
+# กำหนดโฟลเดอร์เก็บไฟล์ชั่วคราว
 UPLOAD_FOLDER = '/tmp'
-if not os.path.exists(UPLOAD_FOLDER):
-    os.makedirs(UPLOAD_FOLDER)
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 @app.route('/ocr', methods=['POST'])
 def ocr():
+    """ รับไฟล์ภาพ และใช้ EasyOCR อ่านข้อความ """
     if 'file' not in request.files:
         return jsonify({"success": False, "error": "No file provided"}), 400
+
     file = request.files['file']
     if file.filename == '':
         return jsonify({"success": False, "error": "No selected file"}), 400
 
-    # บันทึกไฟล์ลงในโฟลเดอร์ /tmp ด้วยชื่อสุ่ม
+    # สร้างชื่อไฟล์แบบสุ่มและบันทึกลง `/tmp`
     filename = os.path.join(UPLOAD_FOLDER, f"{uuid.uuid4().hex}.jpg")
     file.save(filename)
 
     try:
-        # เรียกใช้งาน EasyOCR อ่านไฟล์
+        # ใช้ EasyOCR อ่านข้อมูลจากภาพ
         result = reader.readtext(filename, detail=1)
         lines = [{"text": txt, "confidence": conf} for (_, txt, conf) in result]
+
         return jsonify({"success": True, "data": {"lines": lines}})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
     finally:
-        # ลบไฟล์ชั่วคราว
+        # ลบไฟล์ชั่วคราวหลังใช้งาน
         if os.path.exists(filename):
             os.remove(filename)
 
